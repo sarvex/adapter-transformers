@@ -107,7 +107,7 @@ def main():
         training_args.local_rank,
         training_args.device,
         training_args.n_gpu,
-        bool(training_args.local_rank != -1),
+        training_args.local_rank != -1,
         training_args.fp16,
     )
     logger.info("Training/evaluation parameters %s", training_args)
@@ -119,7 +119,7 @@ def main():
         num_labels = glue_tasks_num_labels[data_args.task_name]
         output_mode = glue_output_modes[data_args.task_name]
     except KeyError:
-        raise ValueError("Task not found: %s" % (data_args.task_name))
+        raise ValueError(f"Task not found: {data_args.task_name}")
 
     # Load pretrained model and tokenizer
     #
@@ -139,7 +139,7 @@ def main():
     )
     model = AutoModelForSequenceClassification.from_pretrained(
         model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        from_tf=".ckpt" in model_args.model_name_or_path,
         config=config,
         cache_dir=model_args.cache_dir,
     )

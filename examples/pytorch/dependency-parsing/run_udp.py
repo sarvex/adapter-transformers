@@ -124,7 +124,7 @@ def main():
         training_args.local_rank,
         training_args.device,
         training_args.n_gpu,
-        bool(training_args.local_rank != -1),
+        training_args.local_rank != -1,
         training_args.fp16,
     )
     logger.info("Training/evaluation parameters %s", training_args)
@@ -134,7 +134,7 @@ def main():
 
     # Prepare for UD dependency parsing task
     labels = UD_HEAD_LABELS
-    label_map: Dict[int, str] = {i: label for i, label in enumerate(labels)}
+    label_map: Dict[int, str] = dict(enumerate(labels))
     num_labels = len(labels)
 
     config = AutoConfig.from_pretrained(
@@ -162,7 +162,7 @@ def main():
     )
 
     # The task name (with prefix)
-    task_name = "ud_" + data_args.task_name
+    task_name = f"ud_{data_args.task_name}"
 
     model = AutoAdapterModel.from_pretrained(
         model_args.model_name_or_path,
@@ -235,7 +235,7 @@ def main():
         result = trainer.evaluate()
 
         if trainer.is_world_process_zero():
-            results.update(result)
+            results |= result
 
         trainer.log_metrics("eval", result)
         trainer.save_metrics("eval", result)
@@ -279,7 +279,7 @@ def main():
             else:
                 trainer.model = AutoAdapterModel.from_pretrained(
                     os.path.join(training_args.output_dir, "best_model"),
-                    from_tf=bool(".ckpt" in model_args.model_name_or_path),
+                    from_tf=".ckpt" in model_args.model_name_or_path,
                     config=config,
                     cache_dir=model_args.cache_dir,
                 ).to(training_args.device)

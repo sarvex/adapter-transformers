@@ -304,11 +304,10 @@ def parse_args():
     args = parser.parse_args()
 
     # Sanity checks
-    if args.push_to_hub or args.with_tracking:
-        if args.output_dir is None:
-            raise ValueError(
-                "Need an `output_dir` to create a repo when `--push_to_hub` or `with_tracking` is specified."
-            )
+    if (args.push_to_hub or args.with_tracking) and args.output_dir is None:
+        raise ValueError(
+            "Need an `output_dir` to create a repo when `--push_to_hub` or `with_tracking` is specified."
+        )
 
     if args.output_dir is not None:
         os.makedirs(args.output_dir, exist_ok=True)
@@ -441,7 +440,7 @@ def main():
             pixel_values.append(image)
             labels.append(target)
 
-        encoding = dict()
+        encoding = {}
         encoding["pixel_values"] = torch.stack(pixel_values)
         encoding["labels"] = torch.stack(labels)
 
@@ -455,7 +454,7 @@ def main():
             pixel_values.append(image)
             labels.append(target)
 
-        encoding = dict()
+        encoding = {}
         encoding["pixel_values"] = torch.stack(pixel_values)
         encoding["labels"] = torch.stack(labels)
 
@@ -565,10 +564,14 @@ def main():
         model.train()
         for step, batch in enumerate(train_dataloader):
             # We need to skip steps until we reach the resumed step
-            if args.resume_from_checkpoint and epoch == starting_epoch:
-                if resume_step is not None and step < resume_step:
-                    completed_steps += 1
-                    continue
+            if (
+                args.resume_from_checkpoint
+                and epoch == starting_epoch
+                and resume_step is not None
+                and step < resume_step
+            ):
+                completed_steps += 1
+                continue
 
             with accelerator.accumulate(model):
                 outputs = model(**batch)
@@ -586,28 +589,30 @@ def main():
                 progress_bar.update(1)
                 completed_steps += 1
 
-            if isinstance(checkpointing_steps, int):
-                if completed_steps % checkpointing_steps == 0:
-                    output_dir = f"step_{completed_steps }"
-                    if args.output_dir is not None:
-                        output_dir = os.path.join(args.output_dir, output_dir)
-                    accelerator.save_state(output_dir)
+            if (
+                isinstance(checkpointing_steps, int)
+                and completed_steps % checkpointing_steps == 0
+            ):
+                output_dir = f"step_{completed_steps }"
+                if args.output_dir is not None:
+                    output_dir = os.path.join(args.output_dir, output_dir)
+                accelerator.save_state(output_dir)
 
-                    if args.push_to_hub and epoch < args.num_train_epochs - 1:
-                        accelerator.wait_for_everyone()
-                        unwrapped_model = accelerator.unwrap_model(model)
-                        unwrapped_model.save_pretrained(
-                            args.output_dir,
-                            is_main_process=accelerator.is_main_process,
-                            save_function=accelerator.save,
+                if args.push_to_hub and epoch < args.num_train_epochs - 1:
+                    accelerator.wait_for_everyone()
+                    unwrapped_model = accelerator.unwrap_model(model)
+                    unwrapped_model.save_pretrained(
+                        args.output_dir,
+                        is_main_process=accelerator.is_main_process,
+                        save_function=accelerator.save,
+                    )
+                    if accelerator.is_main_process:
+                        image_processor.save_pretrained(args.output_dir)
+                        repo.push_to_hub(
+                            commit_message=f"Training in progress {completed_steps} steps",
+                            blocking=False,
+                            auto_lfs_prune=True,
                         )
-                        if accelerator.is_main_process:
-                            image_processor.save_pretrained(args.output_dir)
-                            repo.push_to_hub(
-                                commit_message=f"Training in progress {completed_steps} steps",
-                                blocking=False,
-                                auto_lfs_prune=True,
-                            )
 
             if completed_steps >= args.max_train_steps:
                 break

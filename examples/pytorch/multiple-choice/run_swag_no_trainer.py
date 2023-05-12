@@ -392,7 +392,7 @@ def main():
     if args.model_name_or_path:
         model = AutoModelForMultipleChoice.from_pretrained(
             args.model_name_or_path,
-            from_tf=bool(".ckpt" in args.model_name_or_path),
+            from_tf=".ckpt" in args.model_name_or_path,
             config=config,
         )
     else:
@@ -469,11 +469,19 @@ def main():
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if all(nd not in n for nd in no_decay)
+            ],
             "weight_decay": args.weight_decay,
         },
         {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
             "weight_decay": 0.0,
         },
     ]
@@ -568,10 +576,14 @@ def main():
             total_loss = 0
         for step, batch in enumerate(train_dataloader):
             # We need to skip steps until we reach the resumed step
-            if args.resume_from_checkpoint and epoch == starting_epoch:
-                if resume_step is not None and step < resume_step:
-                    completed_steps += 1
-                    continue
+            if (
+                args.resume_from_checkpoint
+                and epoch == starting_epoch
+                and resume_step is not None
+                and step < resume_step
+            ):
+                completed_steps += 1
+                continue
 
             with accelerator.accumulate(model):
                 outputs = model(**batch)
@@ -589,12 +601,14 @@ def main():
                 progress_bar.update(1)
                 completed_steps += 1
 
-            if isinstance(checkpointing_steps, int):
-                if completed_steps % checkpointing_steps == 0:
-                    output_dir = f"step_{completed_steps }"
-                    if args.output_dir is not None:
-                        output_dir = os.path.join(args.output_dir, output_dir)
-                    accelerator.save_state(output_dir)
+            if (
+                isinstance(checkpointing_steps, int)
+                and completed_steps % checkpointing_steps == 0
+            ):
+                output_dir = f"step_{completed_steps }"
+                if args.output_dir is not None:
+                    output_dir = os.path.join(args.output_dir, output_dir)
+                accelerator.save_state(output_dir)
 
             if completed_steps >= args.max_train_steps:
                 break

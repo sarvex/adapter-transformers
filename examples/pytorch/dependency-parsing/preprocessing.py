@@ -62,11 +62,11 @@ def preprocess_dataset(
 
             # pad or truncate arc labels
             labels_arcs = [int(h) for h in heads]
-            labels_arcs = labels_arcs + (data_args.max_seq_length - len(labels_arcs)) * pad_item
+            labels_arcs += (data_args.max_seq_length - len(labels_arcs)) * pad_item
 
             # convert rel labels from map, pad or truncate if necessary
             labels_rels = [label_map[i.split(":")[0]] for i in deprels]
-            labels_rels = labels_rels + (data_args.max_seq_length - len(labels_rels)) * pad_item
+            labels_rels += (data_args.max_seq_length - len(labels_rels)) * pad_item
 
             # determine start indices of words, pad or truncate if necessary
             word_starts = np.cumsum([1] + word_lengths).tolist()

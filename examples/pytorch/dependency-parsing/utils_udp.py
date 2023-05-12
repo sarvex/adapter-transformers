@@ -322,10 +322,7 @@ class DependencyParsingTrainer(Trainer):
 
         model = self.model
         # multi-gpu eval
-        if self.args.n_gpu > 1:
-            model = torch.nn.DataParallel(model)
-        else:
-            model = self.model
+        model = torch.nn.DataParallel(model) if self.args.n_gpu > 1 else self.model
         # Note: in torch.distributed mode, there's no point in wrapping the model
         # inside a DistributedDataParallel as we'll be under `no_grad` anyways.
 
